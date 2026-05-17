@@ -1,8 +1,8 @@
 #!/usr/bin/env zsh
 
-# grind: iterative AI coding loop (doer works, reviewer checks, repeat until clean)
+# grind: iterative AI coding loop (worker works, reviewer checks, repeat until clean)
 #
-# Both doer and reviewer maintain persistent sessions across iterations,
+# Both worker and reviewer maintain persistent sessions across iterations,
 # accumulating context so each round builds on the previous.
 #
 # Usage:
@@ -13,27 +13,27 @@
 #   grind "Add input validation to the signup form"
 #   grind "Refactor the database layer" "Focus on thread safety and error handling."
 #
-# Supported agents (use as GRIND_DOER or GRIND_REVIEWER):
+# Supported agents (set as GRIND_WORKER or GRIND_REVIEWER):
 #   Claude:  claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p
 #   Codex:   codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox
 #
-# Swap roles (Codex does work, Claude reviews):
-#   GRIND_DOER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox" \
+# Swap roles (Codex works, Claude reviews):
+#   GRIND_WORKER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox" \
 #   GRIND_REVIEWER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort high -p" \
 #   grind "Fix the race condition in the worker pool"
 #
 # Both Claude:
-#   GRIND_DOER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p" \
+#   GRIND_WORKER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p" \
 #   GRIND_REVIEWER="claude --dangerously-skip-permissions --model claude-sonnet-4-6 --effort high -p" \
 #   grind "Implement retry logic for the HTTP client"
 #
 # Both Codex:
-#   GRIND_DOER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox" \
+#   GRIND_WORKER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox" \
 #   GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review.out" \
 #   grind "Add rate limiting to the API"
 
 # Configuration: override these before calling grind()
-GRIND_DOER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p"
+GRIND_WORKER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p"
 GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review.out"
 GRIND_REVIEW_PROMPT="Review the code changes in this repository. Ensure there are no bugs and the solution is elegant and simple."
 
@@ -91,7 +91,7 @@ grind() {
   local review_prompt="${2:-$GRIND_REVIEW_PROMPT}"
   local iteration=0
   local review_output=""
-  local doer_session=""
+  local worker_session=""
   local reviewer_session=""
 
   if [[ -z "$task" && -z "$review_prompt" ]]; then
@@ -99,14 +99,14 @@ grind() {
     echo "       grind \"\" \"review prompt\"    (review-only mode, no initial task)"
     echo ""
     echo "Configure agents via:"
-    echo "  GRIND_DOER=\"claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p\""
+    echo "  GRIND_WORKER=\"claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p\""
     echo "  GRIND_REVIEWER=\"codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox\""
     return 1
   fi
 
   echo "═══ grind: starting ═══"
   echo "Task: $task"
-  echo "Doer: $GRIND_DOER"
+  echo "Worker: $GRIND_WORKER"
   echo "Reviewer: $GRIND_REVIEWER"
   echo ""
 
@@ -116,11 +116,11 @@ grind() {
 
     # WORK (skip on first iteration if no task)
     if [[ -n "$task" || -n "$review_output" ]]; then
-      echo "[work] doer..."
+      echo "[work] worker..."
       local work_prompt=""
       if [[ -z "$review_output" ]]; then
         work_prompt="$task"
-      elif [[ -n "$doer_session" ]]; then
+      elif [[ -n "$worker_session" ]]; then
         work_prompt="The reviewer found these issues:
 
 $review_output
@@ -142,15 +142,15 @@ $review_output
 Fix all the issues above."
       fi
 
-      local doer_raw=""
-      doer_raw=$(_grind_run "$GRIND_DOER" "$work_prompt" "$doer_session")
-      if [[ -z "$doer_session" ]]; then
-        doer_session=$(_grind_parse_session "$doer_raw" "$GRIND_DOER")
-        [[ -n "$doer_session" ]] && echo "[work] session: $doer_session"
+      local worker_raw=""
+      worker_raw=$(_grind_run "$GRIND_WORKER" "$work_prompt" "$worker_session")
+      if [[ -z "$worker_session" ]]; then
+        worker_session=$(_grind_parse_session "$worker_raw" "$GRIND_WORKER")
+        [[ -n "$worker_session" ]] && echo "[work] session: $worker_session"
       fi
-      local doer_result=""
-      doer_result=$(_grind_parse_output "$doer_raw" "$GRIND_DOER" "doer")
-      echo "$doer_result"
+      local worker_result=""
+      worker_result=$(_grind_parse_output "$worker_raw" "$GRIND_WORKER" "worker")
+      echo "$worker_result"
       echo "[work] done"
     fi
 
