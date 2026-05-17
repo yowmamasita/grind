@@ -14,29 +14,17 @@
 #   grind "Refactor the database layer" "Focus on thread safety and error handling."
 #
 # Supported agents (use as GRIND_DOER or GRIND_REVIEWER):
-#   Claude:    claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p
-#   Codex:     codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox
-#   OpenCode:  opencode -p
-#   Gemini:    gemini -m gemini-2.5-pro --approval-mode=yolo -p
-#   Crush:     crush --yolo run -q -m anthropic/claude-sonnet-4 --
-#   Oh My Pi:  omp --slow -p
-#   Pi:        pi --model anthropic/claude-sonnet-4 --thinking high -p
-#   Trae:      trae-cli run
-#   Cursor:    cursor-agent --yolo --model claude-sonnet-4-6 --print
-#   Cline:     cline --yolo
-#   Qoder:     qodercli -p
-#   Droid:     droid exec --auto high --model gpt-5.5
-#   Kilocode:  kilo run --auto --model anthropic/claude-sonnet-4-6
-#   Goose:     goose run --text
+#   Claude:  claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p
+#   Codex:   codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox
 #
 # Override for a single run:
-#   GRIND_DOER="gemini -m gemini-2.5-pro --approval-mode=yolo -p" \
+#   GRIND_DOER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox" \
 #   GRIND_REVIEWER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort high -p" \
 #   grind "Fix the race condition in the worker pool"
 #
 # Or export to change defaults for the session:
-#   export GRIND_DOER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox"
-#   export GRIND_REVIEWER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort high -p"
+#   export GRIND_DOER="claude --dangerously-skip-permissions --model claude-sonnet-4-6 --effort high -p"
+#   export GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox"
 #   grind "Implement retry logic for the HTTP client"
 
 # Configuration: override these before calling grind()
@@ -48,7 +36,6 @@ _grind_run() {
   local agent_cmd="$1"
   local prompt="$2"
   local session_id="$3"
-  local output_file="$4"
 
   if [[ "$agent_cmd" == claude* ]]; then
     if [[ -n "$session_id" ]]; then
@@ -64,8 +51,6 @@ _grind_run() {
       eval "$agent_cmd" '"$prompt"' < /dev/null 2>/tmp/grind_codex_stderr.txt
     fi
     cat /tmp/grind_codex_stderr.txt
-  else
-    eval "$agent_cmd" '"$prompt"' < /dev/null 2>/dev/null
   fi
 }
 
@@ -81,8 +66,6 @@ _grind_parse_output() {
     else
       echo "$raw" | sed -n '/^codex$/,/^tokens used$/{ /^codex$/d; /^tokens used$/d; p; }'
     fi
-  else
-    echo "$raw"
   fi
 }
 
