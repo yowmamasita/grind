@@ -11,7 +11,7 @@
 #
 # Supported agents (use as GRIND_DOER or GRIND_REVIEWER):
 #   Claude:    claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p
-#   Codex:     codex -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -p
+#   Codex:     codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox
 #   OpenCode:  opencode -p
 #   Gemini:    gemini -m gemini-2.5-pro --approval-mode=yolo -p
 #   Crush:     crush --yolo run -q -m anthropic/claude-sonnet-4 --
@@ -32,12 +32,12 @@
 #
 # Or export to change defaults for the session:
 #   export GRIND_DOER="pi --model anthropic/claude-sonnet-4 --thinking high -p"
-#   export GRIND_REVIEWER="codex -m o3 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -p"
+#   export GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox"
 #   grind "Implement retry logic for the HTTP client"
 
 # Configuration — override these before calling grind()
 GRIND_DOER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p"
-GRIND_REVIEWER="codex -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -p"
+GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox"
 GRIND_REVIEW_PROMPT="Review the code changes in this repository. Ensure there are no bugs and the solution is elegant and simple."
 
 grind() {
@@ -51,7 +51,7 @@ grind() {
     echo ""
     echo "Configure agents via:"
     echo "  GRIND_DOER=\"claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p\""
-    echo "  GRIND_REVIEWER=\"codex -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -p\""
+    echo "  GRIND_REVIEWER=\"codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox\""
     return 1
   fi
 
