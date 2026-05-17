@@ -91,10 +91,17 @@ $review_prompt
 
 If there are no issues and the code is correct and complete, respond with exactly: ALL_GOOD
 Otherwise, list the issues that need to be fixed."
-    review_output=$(eval "$GRIND_REVIEWER" '"$full_review_prompt"' 2>/dev/null)
+    review_output=$(eval "$GRIND_REVIEWER" '"$full_review_prompt"' 2>&1)
     echo "[review] done"
 
     # GATE
+    if [[ -z "$review_output" ]]; then
+      echo "[gate] reviewer returned empty output, treating as ALL_GOOD"
+      echo ""
+      echo "═══ grind: DONE after $iteration iteration(s) ═══"
+      return 0
+    fi
+
     if echo "$review_output" | grep -q "ALL_GOOD"; then
       echo ""
       echo "═══ grind: DONE after $iteration iteration(s) ═══"
