@@ -1,6 +1,6 @@
 # grind
 
-Iterative AI coding loop — one agent works, another reviews, repeat until clean.
+Iterative AI coding loop: one agent works, another reviews, repeat until clean.
 
 ## How it works
 
