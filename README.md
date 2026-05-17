@@ -47,7 +47,7 @@ Override agents via environment variables:
 ```bash
 # Defaults
 GRIND_WORKER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p"
-GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review.out"
+GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review_$$.out"
 GRIND_REVIEW_PROMPT="Review the code changes in this repository. Ensure there are no bugs and the solution is elegant and simple."
 ```
 
@@ -63,7 +63,7 @@ grind "Fix the race condition in the worker pool"
 
 ```bash
 export GRIND_WORKER="claude --dangerously-skip-permissions --model claude-sonnet-4-6 --effort high -p"
-export GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review.out"
+export GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review_$$.out"
 grind "Implement retry logic for the HTTP client"
 ```
 

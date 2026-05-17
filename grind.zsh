@@ -29,12 +29,12 @@
 #
 # Both Codex:
 #   GRIND_WORKER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox" \
-#   GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review.out" \
+#   GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review_$$.out" \
 #   grind "Add rate limiting to the API"
 
 # Configuration: override these before calling grind()
 GRIND_WORKER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p"
-GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review.out"
+GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review_$$.out"
 GRIND_REVIEW_PROMPT="Review the code changes in this repository. Ensure there are no bugs and the solution is elegant and simple."
 
 _grind_run() {
@@ -51,11 +51,11 @@ _grind_run() {
   elif [[ "$agent_cmd" == codex* ]]; then
     local codex_flags=$(echo "$agent_cmd" | sed 's/^codex exec//')
     if [[ -n "$session_id" ]]; then
-      eval "codex exec resume \"$session_id\" \"$prompt\" $codex_flags" < /dev/null 2>/tmp/grind_codex_stderr.txt
+      eval "codex exec resume \"$session_id\" \"$prompt\" $codex_flags" < /dev/null 2>/tmp/grind_codex_stderr_$$.txt
     else
-      eval "$agent_cmd" '"$prompt"' < /dev/null 2>/tmp/grind_codex_stderr.txt
+      eval "$agent_cmd" '"$prompt"' < /dev/null 2>/tmp/grind_codex_stderr_$$.txt
     fi
-    cat /tmp/grind_codex_stderr.txt
+    cat /tmp/grind_codex_stderr_$$.txt
   fi
 }
 
@@ -67,8 +67,8 @@ _grind_parse_output() {
   if [[ "$agent_cmd" == claude* ]]; then
     echo "$raw" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('result',''))" 2>/dev/null || echo "$raw"
   elif [[ "$agent_cmd" == codex* ]]; then
-    if [[ "$role" == "reviewer" && -f /tmp/grind_review.out ]]; then
-      cat /tmp/grind_review.out
+    if [[ "$role" == "reviewer" && -f /tmp/grind_review_$$.out ]]; then
+      cat /tmp/grind_review_$$.out
     else
       echo "$raw" | sed -n '/^codex$/,/^tokens used$/{ /^codex$/d; /^tokens used$/d; p; }'
     fi
@@ -172,7 +172,7 @@ Fix all the issues above."
 If there are no issues and the code is correct and complete, respond with exactly: ALL_GOOD
 Otherwise, list the issues that need to be fixed."
 
-    rm -f /tmp/grind_review.out
+    rm -f /tmp/grind_review_$$.out
     local reviewer_raw=""
     reviewer_raw=$(_grind_run "$GRIND_REVIEWER" "$full_review_prompt" "$reviewer_session")
     if [[ -z "$reviewer_session" ]]; then
