@@ -17,15 +17,20 @@
 #   Claude:  claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p
 #   Codex:   codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox
 #
-# Override for a single run:
+# Swap roles (Codex does work, Claude reviews):
 #   GRIND_DOER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox" \
 #   GRIND_REVIEWER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort high -p" \
 #   grind "Fix the race condition in the worker pool"
 #
-# Or export to change defaults for the session:
-#   export GRIND_DOER="claude --dangerously-skip-permissions --model claude-sonnet-4-6 --effort high -p"
-#   export GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox"
+# Both Claude:
+#   GRIND_DOER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p" \
+#   GRIND_REVIEWER="claude --dangerously-skip-permissions --model claude-sonnet-4-6 --effort high -p" \
 #   grind "Implement retry logic for the HTTP client"
+#
+# Both Codex:
+#   GRIND_DOER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox" \
+#   GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review.out" \
+#   grind "Add rate limiting to the API"
 
 # Configuration: override these before calling grind()
 GRIND_DOER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p"
@@ -57,11 +62,12 @@ _grind_run() {
 _grind_parse_output() {
   local raw="$1"
   local agent_cmd="$2"
+  local role="$3"
 
   if [[ "$agent_cmd" == claude* ]]; then
     echo "$raw" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('result',''))" 2>/dev/null || echo "$raw"
   elif [[ "$agent_cmd" == codex* ]]; then
-    if [[ -f /tmp/grind_review.out ]]; then
+    if [[ "$role" == "reviewer" && -f /tmp/grind_review.out ]]; then
       cat /tmp/grind_review.out
     else
       echo "$raw" | sed -n '/^codex$/,/^tokens used$/{ /^codex$/d; /^tokens used$/d; p; }'
@@ -143,7 +149,7 @@ Fix all the issues above."
         [[ -n "$doer_session" ]] && echo "[work] session: $doer_session"
       fi
       local doer_result=""
-      doer_result=$(_grind_parse_output "$doer_raw" "$GRIND_DOER")
+      doer_result=$(_grind_parse_output "$doer_raw" "$GRIND_DOER" "doer")
       echo "$doer_result"
       echo "[work] done"
     fi
@@ -173,7 +179,7 @@ Otherwise, list the issues that need to be fixed."
       reviewer_session=$(_grind_parse_session "$reviewer_raw" "$GRIND_REVIEWER")
       [[ -n "$reviewer_session" ]] && echo "[review] session: $reviewer_session"
     fi
-    review_output=$(_grind_parse_output "$reviewer_raw" "$GRIND_REVIEWER")
+    review_output=$(_grind_parse_output "$reviewer_raw" "$GRIND_REVIEWER" "reviewer")
     echo "[review] done"
 
     # GATE
