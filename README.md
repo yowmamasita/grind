@@ -17,11 +17,6 @@ Loop runs until the reviewer has no more issues.
 
 Only Claude Code and OpenAI Codex are supported. Both support persistent session resumption which is core to how grind works.
 
-| Agent | Example config |
-|-------|---------------|
-| Claude | `claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p` |
-| Codex | `codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox` |
-
 ## Install
 
 ```bash
@@ -40,31 +35,25 @@ grind "" "Ensure there are no security vulnerabilities."
 - First argument: task description (empty string for review-only mode)
 - Second argument: custom review prompt (optional, termination instruction is always appended)
 
-## Configuration
+## Mode flags
 
-Override agents via environment variables:
+Pick the agent combination with a single flag (c=Claude, x=Codex, first=worker, second=reviewer):
 
 ```bash
-# Defaults
+grind --cx "Add rate limiting"    # Claude works, Codex reviews (default)
+grind --xc "Add rate limiting"    # Codex works, Claude reviews
+grind --cc "Add rate limiting"    # Claude works, Claude reviews
+grind --xx "Add rate limiting"    # Codex works, Codex reviews
+```
+
+## Configuration
+
+Override agents via environment variables (used when no mode flag is passed):
+
+```bash
 GRIND_WORKER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p"
 GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review_$$.out"
 GRIND_REVIEW_PROMPT="Review the code changes in this repository. Ensure there are no bugs and the solution is elegant and simple."
-```
-
-### Inline override
-
-```bash
-GRIND_WORKER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox" \
-GRIND_REVIEWER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort high -p" \
-grind "Fix the race condition in the worker pool"
-```
-
-### Session override
-
-```bash
-export GRIND_WORKER="claude --dangerously-skip-permissions --model claude-sonnet-4-6 --effort high -p"
-export GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review_$$.out"
-grind "Implement retry logic for the HTTP client"
 ```
 
 ## Requirements
