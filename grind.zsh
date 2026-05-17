@@ -32,12 +32,12 @@
 #
 # Or export to change defaults for the session:
 #   export GRIND_DOER="pi --model anthropic/claude-sonnet-4 --thinking high -p"
-#   export GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox"
+#   export GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review.out"
 #   grind "Implement retry logic for the HTTP client"
 
 # Configuration — override these before calling grind()
 GRIND_DOER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p"
-GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox"
+GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review.out"
 GRIND_REVIEW_PROMPT="Review the code changes in this repository. Ensure there are no bugs and the solution is elegant and simple."
 
 grind() {
@@ -46,8 +46,9 @@ grind() {
   local iteration=0
   local review_output=""
 
-  if [[ -z "$task" ]]; then
+  if [[ -z "$task" && -z "$review_prompt" ]]; then
     echo "Usage: grind \"task description\" [\"review prompt\"]"
+    echo "       grind \"\" \"review prompt\"    (review-only mode, no initial task)"
     echo ""
     echo "Configure agents via:"
     echo "  GRIND_DOER=\"claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p\""
@@ -65,33 +66,54 @@ grind() {
     (( iteration++ ))
     echo "─── iteration $iteration ───"
 
-    # WORK
-    echo "[work] doer..."
-    local work_prompt
-    if [[ -z "$review_output" ]]; then
-      work_prompt="$task"
-    else
-      work_prompt="Original task: $task
+    # WORK (skip on first iteration if no task)
+    if [[ -n "$task" || -n "$review_output" ]]; then
+      echo "[work] doer..."
+      local work_prompt=""
+      if [[ -z "$review_output" ]]; then
+        work_prompt="$task"
+      else
+        if [[ -n "$task" ]]; then
+          work_prompt="Original task: $task
 
 The reviewer found these issues with your previous work:
 
 $review_output
 
 Fix all the issues above."
-    fi
+        else
+          work_prompt="The reviewer found these issues with your previous work:
 
-    eval "$GRIND_DOER" '"$work_prompt"' 2>/dev/null
-    echo "[work] done"
+$review_output
+
+Fix all the issues above."
+        fi
+      fi
+
+      eval "$GRIND_DOER" '"$work_prompt"' < /dev/null
+      echo "[work] done"
+    fi
 
     # REVIEW
     echo "[review] reviewer..."
-    local full_review_prompt="The task was: $task
+    local full_review_prompt=""
+    if [[ -n "$task" ]]; then
+      full_review_prompt="The task was: $task
 
-$review_prompt
+"
+    fi
+    full_review_prompt+="$review_prompt
 
 If there are no issues and the code is correct and complete, respond with exactly: ALL_GOOD
 Otherwise, list the issues that need to be fixed."
-    review_output=$(eval "$GRIND_REVIEWER" '"$full_review_prompt"' 2>&1)
+    rm -f /tmp/grind_review.out
+    local captured=""
+    captured=$(eval "$GRIND_REVIEWER" '"$full_review_prompt"' < /dev/null 2>/dev/null)
+    if [[ -f /tmp/grind_review.out ]]; then
+      review_output=$(cat /tmp/grind_review.out)
+    else
+      review_output="$captured"
+    fi
     echo "[review] done"
 
     # GATE
@@ -108,6 +130,10 @@ Otherwise, list the issues that need to be fixed."
       return 0
     fi
 
+    echo ""
+    echo "[review output]"
+    echo "$review_output"
+    echo ""
     echo "[gate] issues found, iterating..."
     echo ""
   done
