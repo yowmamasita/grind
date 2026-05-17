@@ -87,6 +87,12 @@ _grind_parse_session() {
 }
 
 grind() {
+  local swap=false
+  if [[ "$1" == "--swap" ]]; then
+    swap=true
+    shift
+  fi
+
   local task="$1"
   local review_prompt="${2:-$GRIND_REVIEW_PROMPT}"
   local iteration=0
@@ -94,9 +100,17 @@ grind() {
   local worker_session=""
   local reviewer_session=""
 
+  local active_worker="$GRIND_WORKER"
+  local active_reviewer="$GRIND_REVIEWER"
+  if [[ "$swap" == true ]]; then
+    active_worker="$GRIND_REVIEWER"
+    active_reviewer="$GRIND_WORKER"
+  fi
+
   if [[ -z "$task" && -z "$review_prompt" ]]; then
-    echo "Usage: grind \"task description\" [\"review prompt\"]"
+    echo "Usage: grind [--swap] \"task description\" [\"review prompt\"]"
     echo "       grind \"\" \"review prompt\"    (review-only mode, no initial task)"
+    echo "       grind --swap \"task\"          (swap worker and reviewer)"
     echo ""
     echo "Configure agents via:"
     echo "  GRIND_WORKER=\"claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p\""
@@ -106,8 +120,8 @@ grind() {
 
   echo "═══ grind: starting ═══"
   echo "Task: $task"
-  echo "Worker: $GRIND_WORKER"
-  echo "Reviewer: $GRIND_REVIEWER"
+  echo "Worker: $active_worker"
+  echo "Reviewer: $active_reviewer"
   echo ""
 
   while true; do
@@ -143,13 +157,13 @@ Fix all the issues above."
       fi
 
       local worker_raw=""
-      worker_raw=$(_grind_run "$GRIND_WORKER" "$work_prompt" "$worker_session")
+      worker_raw=$(_grind_run "$active_worker" "$work_prompt" "$worker_session")
       if [[ -z "$worker_session" ]]; then
-        worker_session=$(_grind_parse_session "$worker_raw" "$GRIND_WORKER")
+        worker_session=$(_grind_parse_session "$worker_raw" "$active_worker")
         [[ -n "$worker_session" ]] && echo "[work] session: $worker_session"
       fi
       local worker_result=""
-      worker_result=$(_grind_parse_output "$worker_raw" "$GRIND_WORKER" "worker")
+      worker_result=$(_grind_parse_output "$worker_raw" "$active_worker" "worker")
       echo "$worker_result"
       echo "[work] done"
     fi
@@ -174,12 +188,12 @@ Otherwise, list the issues that need to be fixed."
 
     rm -f /tmp/grind_review_$$.out
     local reviewer_raw=""
-    reviewer_raw=$(_grind_run "$GRIND_REVIEWER" "$full_review_prompt" "$reviewer_session")
+    reviewer_raw=$(_grind_run "$active_reviewer" "$full_review_prompt" "$reviewer_session")
     if [[ -z "$reviewer_session" ]]; then
-      reviewer_session=$(_grind_parse_session "$reviewer_raw" "$GRIND_REVIEWER")
+      reviewer_session=$(_grind_parse_session "$reviewer_raw" "$active_reviewer")
       [[ -n "$reviewer_session" ]] && echo "[review] session: $reviewer_session"
     fi
-    review_output=$(_grind_parse_output "$reviewer_raw" "$GRIND_REVIEWER" "reviewer")
+    review_output=$(_grind_parse_output "$reviewer_raw" "$active_reviewer" "reviewer")
     echo "[review] done"
 
     # GATE
