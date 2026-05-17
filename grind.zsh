@@ -17,20 +17,11 @@
 #   Claude:  claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p
 #   Codex:   codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox
 #
-# Swap roles (Codex works, Claude reviews):
-#   GRIND_WORKER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox" \
-#   GRIND_REVIEWER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort high -p" \
-#   grind "Fix the race condition in the worker pool"
-#
-# Both Claude:
-#   GRIND_WORKER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p" \
-#   GRIND_REVIEWER="claude --dangerously-skip-permissions --model claude-sonnet-4-6 --effort high -p" \
-#   grind "Implement retry logic for the HTTP client"
-#
-# Both Codex:
-#   GRIND_WORKER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox" \
-#   GRIND_REVIEWER="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review_$$.out" \
-#   grind "Add rate limiting to the API"
+# Mode flags (c=Claude, x=Codex, first=worker, second=reviewer):
+#   grind --cc "task"   Claude works, Claude reviews
+#   grind --cx "task"   Claude works, Codex reviews (default)
+#   grind --xc "task"   Codex works, Claude reviews
+#   grind --xx "task"   Codex works, Codex reviews
 
 # Configuration: override these before calling grind()
 GRIND_WORKER="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p"
@@ -87,9 +78,9 @@ _grind_parse_session() {
 }
 
 grind() {
-  local swap=false
-  if [[ "$1" == "--swap" ]]; then
-    swap=true
+  local mode=""
+  if [[ "$1" == --* ]]; then
+    mode="$1"
     shift
   fi
 
@@ -100,17 +91,27 @@ grind() {
   local worker_session=""
   local reviewer_session=""
 
+  local claude_cmd="claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p"
+  local codex_cmd="codex exec -m gpt-5.5 -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox -o /tmp/grind_review_$$.out"
+
   local active_worker="$GRIND_WORKER"
   local active_reviewer="$GRIND_REVIEWER"
-  if [[ "$swap" == true ]]; then
-    active_worker="$GRIND_REVIEWER"
-    active_reviewer="$GRIND_WORKER"
-  fi
+  case "$mode" in
+    --cc) active_worker="$claude_cmd"; active_reviewer="$claude_cmd" ;;
+    --cx) active_worker="$claude_cmd"; active_reviewer="$codex_cmd" ;;
+    --xc) active_worker="$codex_cmd"; active_reviewer="$claude_cmd" ;;
+    --xx) active_worker="$codex_cmd"; active_reviewer="$codex_cmd" ;;
+  esac
 
   if [[ -z "$task" && -z "$review_prompt" ]]; then
-    echo "Usage: grind [--swap] \"task description\" [\"review prompt\"]"
+    echo "Usage: grind [--cc|--cx|--xc|--xx] \"task description\" [\"review prompt\"]"
     echo "       grind \"\" \"review prompt\"    (review-only mode, no initial task)"
-    echo "       grind --swap \"task\"          (swap worker and reviewer)"
+    echo ""
+    echo "Modes (c=Claude, x=Codex, first=worker, second=reviewer):"
+    echo "  --cc  Claude works, Claude reviews"
+    echo "  --cx  Claude works, Codex reviews (default)"
+    echo "  --xc  Codex works, Claude reviews"
+    echo "  --xx  Codex works, Codex reviews"
     echo ""
     echo "Configure agents via:"
     echo "  GRIND_WORKER=\"claude --dangerously-skip-permissions --model claude-opus-4-6 --effort medium -p\""
